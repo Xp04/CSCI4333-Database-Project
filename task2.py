@@ -3,11 +3,11 @@ import pandas as pd
 import csv
 
 def create_robot_db():
-    # Create or connect to the database
+    #Create and connects to the database
     conn = sqlite3.connect('robot.db')
     cursor = conn.cursor()
     
-    # Create tables
+    #The tables are created
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS robots (
         robot_id INTEGER PRIMARY KEY,
@@ -17,34 +17,34 @@ def create_robot_db():
     
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS sensor_readings (
-        reading_id INTEGER PRIMARY KEY AUTOINCREMENT,
         robot_id INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         x_axis REAL NOT NULL,
         y_axis REAL NOT NULL,
+        PRIMARY KEY (robot_id, timestamp),
         FOREIGN KEY (robot_id) REFERENCES robots (robot_id)
     )
     ''')
     
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS target_intervals (
-        interval_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        rowinterval_id INTEGER PRIMARY KEY AUTOINCREMENT,
         start_time INTEGER NOT NULL,
         end_time INTEGER NOT NULL,
         event_type TEXT NOT NULL
     )
     ''')
     
-    # Import data from CSV files
+    #The data from the .csv is imported
     try:
-        # Import robot data (assuming columns are robot_id and name in order)
+        # First the robot data
         with open('robot.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
                 cursor.execute("INSERT INTO robots (robot_id, name) VALUES (?, ?)", 
-                              (int(row[0]), row[1]))
+                             (int(row[0]), row[1]))
         
-        # Import sensor readings from t1.csv to t5.csv
+        #Second the sensor readings from t1.csv to t5.csv
         for robot_id in range(1, 6):
             file_name = f't{robot_id}.csv'
             with open(file_name, 'r') as f:
@@ -57,7 +57,7 @@ def create_robot_db():
                         VALUES (?, ?, ?, ?)
                     ''', (robot_id, timestamp, x_axis, y_axis))
         
-        # Import target intervals (assuming columns are start_time, end_time, event_type in order)
+        #Third the target intervals
         with open('interval.csv', 'r') as f:
             reader = csv.reader(f)
             for row in reader:
@@ -78,4 +78,3 @@ def create_robot_db():
 
 if __name__ == "__main__":
     create_robot_db()
-

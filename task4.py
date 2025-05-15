@@ -6,11 +6,11 @@ def analyze_robot_trajectory():
     cursor = conn.cursor()
     
     try:
-        # 1. Find regions where Astro and IamHuman are close
-        print("\nClose Proximity Regions (x_min, x_max, y_min, y_max):")
+        #First is finding the regions where Astro and IamHuman are close
+        print("\nClose Distance Regions (x_min, x_max, y_min, y_max):")
         print("-" * 80)
         
-        # First get all timestamps where they're close
+        #All timestamps where they're close are collected
         cursor.execute('''
             CREATE TEMP TABLE close_times AS
             SELECT DISTINCT a.timestamp
@@ -23,7 +23,7 @@ def analyze_robot_trajectory():
             ORDER BY a.timestamp
         ''')
         
-        # Then find continuous time blocks
+        #Find continuous time stamps
         cursor.execute('''
             SELECT 
                 MIN(timestamp) AS start_time,
@@ -38,7 +38,7 @@ def analyze_robot_trajectory():
         
         time_blocks = cursor.fetchall()
         
-        # Now get spatial regions for each time block
+        #Getting the spatial regions for each time stamp
         for start, end in time_blocks:
             cursor.execute('''
                 SELECT 
@@ -54,7 +54,7 @@ def analyze_robot_trajectory():
             region = cursor.fetchone()
             print(f"Time: {start}-{end}s | x: [{region[0]}, {region[1]}] y: [{region[2]}, {region[3]}]")
         
-        # 2. Calculate total time they were close
+        #Second is to then calculate the total time they were close
         cursor.execute('''
             SELECT COUNT(DISTINCT a.timestamp)
             FROM sensor_readings a
@@ -66,30 +66,30 @@ def analyze_robot_trajectory():
         ''')
         
         total_seconds = cursor.fetchone()[0]
-        print(f"\nTotal time Astro and IamHuman were close: {total_seconds} seconds")
+        print(f"\nTotal time Astro and IamHuman were close is: {total_seconds} seconds")
         
-        # 3. New task: Check robot speeds during target intervals (simplified without event type)
-        print("\nRobot Speed Analysis During Target Intervals:")
-        print("{:<10} {:<15}".format("Interval", "Slow Speed (<0.2cm/s)"))
-        print("-" * 30)
+        #Third(bonus) is to check for robot speeds during the target intervals
+        print("\nRobot Speed During Target Intervals:")
+        print("{:<10} {:<15} {:<15}".format("Interval", "Start-End", "Slow Speed (<0.2cm/s)"))
+        print("-" * 45)
         
-        # Get all target intervals (using rowid as interval_id)
+        #All target intervals
         cursor.execute('''
-            SELECT rowid, start_time, end_time 
+            SELECT rowinterval_id, start_time, end_time 
             FROM target_intervals
-            ORDER BY rowid
+            ORDER BY rowinterval_id
         ''')
         
         intervals = cursor.fetchall()
         
-        for interval_id, start, end in intervals:
+        for rowinterval_id, start, end in intervals:
             cursor.execute("SELECT DISTINCT robot_id FROM robots")
             robot_ids = [row[0] for row in cursor.fetchall()]
             
             slow_detected = False
             
             for robot_id in robot_ids:
-                # Get positions at start and end of interval
+                #Positions at start and end of interval are gotten
                 cursor.execute('''
                     SELECT x_axis, y_axis FROM sensor_readings 
                     WHERE robot_id = ? AND timestamp = ?
@@ -103,7 +103,7 @@ def analyze_robot_trajectory():
                 end_pos = cursor.fetchone()
                 
                 if start_pos and end_pos:
-                    # Calculate distance and speed
+                    #Handles calculating the distance and speed
                     dx = end_pos[0] - start_pos[0]
                     dy = end_pos[1] - start_pos[1]
                     distance = math.sqrt(dx**2 + dy**2)
@@ -114,12 +114,16 @@ def analyze_robot_trajectory():
                         slow_detected = True
                         break
             
-            print("{:<10} {:<15}".format(interval_id, "Yes" if slow_detected else "No"))
+            print("{:<10} {:<5}-{:<5} {:<15}".format(
+                rowinterval_id, 
+                start, 
+                end, 
+                "Yes" if slow_detected else "No"))
         
     except Exception as e:
         print(f"Error: {e}")
     finally:
-        # Clean up temporary table
+        #Cleans up temporary table(issue I was having in printing duplicate tables)
         cursor.execute("DROP TABLE IF EXISTS close_times")
         conn.close()
 
